@@ -7,6 +7,7 @@ const READ = /\.(list|dashboard|rekap|riwayat|config|stats)$/, inflight = {};
 let epoch = 0;
 const GAS_RE = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]{20,}\/exec$/;
 async function apiRun(action, data) {
+  if (window.DEMO) { await new Promise(r => setTimeout(r, 120)); const f = DemoData[action]; return f ? { success: true, data: f(data || {}), ms: 12 } : { success: true, data: {}, message: 'Mode demo — tidak disimpan.' }; }
   const raw = String(APP_CONFIG.GAS_URL || '').trim(), url = raw.replace(/\/macros\/u\/\d+\/s\//, '/macros/s/');
   if (/GANTI|XXXX/.test(url)) return { success: false, message: 'Konfigurasi belum lengkap: isi GAS_URL di js/config.js dengan URL deployment (berakhiran /exec).' };
   if (!GAS_RE.test(url)) return { success: false, message: 'GAS_URL di js/config.js tidak valid. Salin ulang dari Deploy → Kelola deployment (bentuk: https://script.google.com/macros/s/…/exec), bukan URL editor atau /dev.' };
@@ -24,6 +25,7 @@ function api(action, data) {
 }
 // Render dari cache lokal dulu, lalu segarkan dari server.
 async function apiSWR(action, data, render) {
+  if (window.DEMO) { const r = await api(action, data); if (r.success) render(r.data, false); return r; }
   const ck = 'sa_c_' + action + JSON.stringify(data || {});
   try { const c = JSON.parse(localStorage.getItem(ck) || 'null'); if (c) render(c, true); } catch (e) {}
   const r = await api(action, data);

@@ -26,12 +26,13 @@ async function login() {
   <div id="ts"><p class="mono">Masuk dengan akun Google sekolah.</p><div id="gbtn"></div><p id="gmsg" class="mono"></p>
   <details><summary class="mono">Akses darurat</summary><label>Pengguna</label><input id="du" autocomplete="off"><label>Kata sandi</label><input id="dp" type="password" autocomplete="off"><p><button class="p" id="bd">Masuk darurat</button></p></details></div>
   <div id="tw" hidden><label>NIS</label><input id="nis" inputmode="numeric" autocomplete="username"><label>PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="current-password"><p><button class="p" id="bs" style="width:100%">Masuk Siswa</button></p></div>
-  <p class="mono" style="margin:12px 0 0"><a href="#pos" id="lp">Mode Pos Absensi →</a></p></div></div>`;
+  <p class="mono" style="margin:12px 0 0"><a href="#pos" id="lp">Mode Pos Absensi →</a> · <a href="#demo" id="ld">Lihat demo →</a></p></div></div>`;
   $$('.tabs button').forEach(b => b.onclick = () => { $$('.tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ts').hidden = b.dataset.t !== 's'; $('#tw').hidden = b.dataset.t !== 'w'; });
   const done = r => { if (!ok(r, false)) return; Sesi.set(r.data.token); me = r.data.me; shell(); };
   $('#bd').onclick = async () => done(await api('auth.darurat', { username: $('#du').value, password: $('#dp').value }));
   $('#bs').onclick = async () => done(await api('auth.siswa', { nis: $('#nis').value, pin: $('#pin').value }));
   $('#lp').onclick = e => { e.preventDefault(); posMode(); };
+  $('#ld').onclick = e => { e.preventDefault(); window.DEMO = true; me = { id: 'demo', role: 'admin', nama: 'Demo Admin' }; location.hash = ''; shell(); };
   const c = await api('auth.config');
   if (c.success && c.data.googleClientId) { const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.onload = () => { google.accounts.id.initialize({ client_id: c.data.googleClientId, callback: async x => done(await api('auth.google', { idToken: x.credential })) }); google.accounts.id.renderButton($('#gbtn'), { theme: 'outline', size: 'large', width: 300 }); }; document.head.appendChild(s); }
   else $('#gmsg').textContent = c.success ? 'Google belum dikonfigurasi — gunakan akses darurat.' : (c.message || '');
@@ -39,50 +40,71 @@ async function login() {
 
 // ---------- shell ----------
 const MENU = [
-  ['dashboard', 'Dashboard', 'admin,guru,piket', pgDash], ['riwayat', 'Riwayat', 'siswa', pgRiwayat], ['scan', 'Scan Wajah', 'admin,siswa', pgScan],
-  ['rekap', 'Rekap', 'admin,guru,piket', pgRekap], ['siswa', 'Data Siswa', 'admin,guru', pgSiswa], ['izin', 'Izin / Sakit', 'admin,guru', pgIzin], ['crm', 'CRM & WA', 'admin', pgCrm], ['master', 'Master Data', 'admin', pgMaster]
+  ['dashboard', 'Dashboard', 'admin,guru,piket', pgDash, '▦', 'W-01', 'Ringkasan presensi harian, tren kehadiran, dan siswa yang perlu tindak lanjut.'],
+  ['riwayat', 'Riwayat Saya', 'siswa', pgRiwayat, '☰', 'W-02', 'Status kehadiran pribadi dan ringkasan bulanan.'],
+  ['scan', 'Scan Wajah', 'admin,siswa', pgScan, '◉', 'W-03', 'Absensi biometrik dengan verifikasi kedipan.'],
+  ['rekap', 'Rekap & Laporan', 'admin,guru,piket', pgRekap, '▤', 'W-04', 'Rekap hadir, terlambat, sakit, izin, alpa per siswa; unduh CSV.'],
+  ['siswa', 'Data Siswa', 'admin,guru', pgSiswa, '☺', 'W-05', 'Roster siswa, kontak wali, dan pendaftaran biometrik wajah.'],
+  ['izin', 'Izin / Sakit', 'admin,guru', pgIzin, '✎', 'W-06', 'Catat izin atau sakit beserta lampiran surat.'],
+  ['crm', 'CRM & WhatsApp', 'admin', pgCrm, '✉', 'W-07', 'Kontak wali, deteksi nomor WA, blast, dan konfigurasi notifikasi.'],
+  ['master', 'Master Data', 'admin', pgMaster, '⚙', 'W-08', 'Kelas, jam masuk, toleransi, dan akun staf.']
 ];
 function shell() {
-  const mn = MENU.filter(m => m[2].split(',').includes(me.role));
-  $('#app').innerHTML = `<div class="shell"><aside><div class="brand"><div class="logo">SI</div><div><b>SI-ABSEN</b><div class="mono">SMPN 3 KEDIRI</div></div></div><nav>${mn.map(m => `<a href="#${m[0]}" data-p="${m[0]}"><span class="nm">▪</span>${esc(m[1])}</a>`).join('')}</nav></aside>
-  <main><div class="top"><h1 id="ttl"></h1><div class="row"><span class="mono">${esc(me.nama || me.id)} · ${esc(me.role)}</span><button id="bb" title="Tampilkan/sembunyikan burung">🐦</button><button id="lo">Keluar</button></div></div><div id="pg"></div></main></div>`;
+  const mn = MENU.filter(m => m[2].split(',').includes(me.role)), tg = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('#app').innerHTML = `<div class="shell"><aside><div class="brand"><div class="logo">SI</div><div><b>SI-ABSEN</b><div class="mono">SMPN 3 KEDIRI</div></div></div><div class="lbl">MODUL NAVIGASI</div>
+  <nav>${mn.map(m => `<a href="#${m[0]}" data-p="${m[0]}"><span class="ic">${m[4]}</span><span class="nm"><i class="mono">${m[5]}</i> ${esc(m[1])}</span></a>`).join('')}</nav>
+  <div class="srv"><div class="row" style="justify-content:space-between"><span class="mono">STATUS SERVER</span><b id="sv" class="mono">…</b></div><div class="mono">Sistem Presensi Terpadu SMPN 3 Kediri</div></div></aside>
+  <main>${window.DEMO ? '<div class="demo">MODE DEMO — data contoh, tidak tersimpan. <a href="#" id="dx">Keluar demo</a></div>' : ''}
+  <div class="top"><div class="mtabs">${mn.map(m => `<a href="#${m[0]}" data-p="${m[0]}">${m[5]} ${esc(m[1])}</a>`).join('')}</div><div class="row"><span class="chip mono">${esc(tg)}</span><span class="chip"><b>${esc(me.nama || me.id)}</b> <span class="mono">${esc(me.role)}</span></span><button id="bb" title="Burung">🐦</button><button id="lo">Keluar</button></div></div>
+  <div class="card hero"><div class="hi" id="hi"></div><div><div class="mono" id="mt"></div><h1 id="ttl"></h1><div class="mut" id="ds"></div></div></div><div id="pg"></div></main></div>`;
   $('#bb').onclick = () => toast(Bird.toggle() ? 'Burung aktif 🐦' : 'Burung disembunyikan');
-  $('#lo').onclick = () => { Sesi.set(''); me = null; login(); };
+  $('#lo').onclick = () => { window.DEMO = false; Sesi.set(''); me = null; login(); };
+  if ($('#dx')) $('#dx').onclick = e => { e.preventDefault(); window.DEMO = false; me = null; login(); };
+  api('auth.config').then(r => { const e = $('#sv'); if (e) e.textContent = r.success ? 'ONLINE · ' + (r.ms || 0) + 'ms' : 'OFFLINE'; });
   const nav = () => { clearInterval(timer); const id = (location.hash || '').slice(1), m = mn.find(x => x[0] === id) || mn[0];
-    $$('nav a').forEach(a => a.classList.toggle('on', a.dataset.p === m[0])); $('#ttl').textContent = m[1]; m[3]($('#pg')); };
+    $$('[data-p]').forEach(a => a.classList.toggle('on', a.dataset.p === m[0])); $('#hi').textContent = m[4]; $('#mt').textContent = `[PORTAL ${me.role.toUpperCase()}] MODUL ${m[5]}`; $('#ttl').textContent = m[1]; $('#ds').textContent = m[6]; m[3]($('#pg')); };
   onhashchange = nav; nav();
 }
-const kpi = (l, v, p) => `<div class="card kpi"><div class="lb">${l}</div><div class="v">${v}</div>${p != null ? `<div class="bar"><i style="width:${p}%"></i></div>` : ''}</div>`;
+const kpi = (l, v, p, sub, ic) => `<div class="card kpi"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div class="lb">${l}</div><span class="ki">${ic || ''}</span></div><div class="v">${v}</div>${sub ? `<div class="mono mut">${sub}</div>` : ''}${p != null ? `<div class="bar"><i style="width:${Math.min(100, p)}%"></i></div>` : ''}</div>`;
 const tbl = (h, rows, empty) => `<div class="tw"><table><thead><tr>${h.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.join('') : `<tr><td colspan="${h.length}">${empty || 'Belum ada data.'}</td></tr>`}</tbody></table></div>`;
 
 // ---------- dashboard ----------
-function donut(p) { const t = p.reduce((a, b) => a + b[1], 0) || 1; let o = 25; const cols = ['#0F172A', '#64748B', '#94A3B8', '#E2E8F0'];
-  return `<svg viewBox="0 0 36 36" width="170" height="170" role="img" aria-label="Komposisi kehadiran"><circle cx="18" cy="18" r="15.9" fill="none" stroke="#E2E8F0" stroke-width="5"/>${p.map((x, i) => { const l = x[1] / t * 100, s = `<circle cx="18" cy="18" r="15.9" fill="none" stroke="${cols[i]}" stroke-width="5" stroke-dasharray="${l} ${100 - l}" stroke-dashoffset="${o}"/>`; o -= l; return s; }).join('')}</svg>`; }
+function donut(p, pr) { const t = p.reduce((a, b) => a + b[1], 0) || 1; let o = 25; const cols = ['#0F172A', '#64748B', '#94A3B8', '#E2E8F0'];
+  return `<svg viewBox="0 0 36 36" width="170" height="170" role="img" aria-label="Komposisi kehadiran"><circle cx="18" cy="18" r="15.9" fill="none" stroke="#E2E8F0" stroke-width="5"/>${p.map((x, i) => { const l = x[1] / t * 100, c = `<circle cx="18" cy="18" r="15.9" fill="none" stroke="${cols[i]}" stroke-width="5" stroke-dasharray="${l} ${100 - l}" stroke-dashoffset="${o}"/>`; o -= l; return c; }).join('')}<text x="18" y="19.6" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor">${pr}%</text></svg>`; }
+function line(a) { const W = 520, H = 200, P = 30, mx = Math.max(1, ...a.map(x => x.n)), pt = a.map((x, i) => [P + i * (W - 2 * P) / Math.max(1, a.length - 1), H - P - x.n / mx * (H - 2 * P)]);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tren kehadiran"><rect width="${W}" height="${H}" fill="var(--tint)" rx="6"/>${[0, .5, 1].map(f => `<line x1="${P}" x2="${W - P}" y1="${H - P - f * (H - 2 * P)}" y2="${H - P - f * (H - 2 * P)}" stroke="var(--line)" stroke-dasharray="3 3"/>`).join('')}<polyline fill="none" stroke="var(--ink)" stroke-width="2.5" points="${pt.map(q => q.join(',')).join(' ')}"/>${pt.map((q, i) => `<circle cx="${q[0]}" cy="${q[1]}" r="4" fill="var(--ink)"/><text x="${q[0]}" y="${H - 9}" font-size="11" text-anchor="middle" fill="var(--mut)" font-family="Space Mono">${esc(a[i].t)} (${a[i].n})</text>`).join('')}</svg>`; }
 function pgDash(m) {
-  const draw = d => { const pr = d.total ? Math.round((d.hadir + d.terlambat) / d.total * 100) : 0;
-    m.innerHTML = `<div class="grid g4">${kpi('Total siswa', d.total)}${kpi('Hadir', d.hadir, d.total ? d.hadir / d.total * 100 : 0)}${kpi('Terlambat', d.terlambat, d.total ? d.terlambat / d.total * 100 : 0)}${kpi('Belum scan', d.belum, d.total ? d.belum / d.total * 100 : 0)}</div>
-    <div class="grid g2"><div class="card"><h3>Komposisi hari ini · ${esc(d.tanggal)}</h3><div class="row"><div>${donut([['Hadir', d.hadir], ['Terlambat', d.terlambat], ['Sakit/Izin', d.sakit + d.izin], ['Belum', d.belum]])}</div><div><div class="kpi"><div class="v">${pr}%</div><div class="lb">Kehadiran</div></div><p class="mono">■ Hadir ${d.hadir}<br>■ Terlambat ${d.terlambat}<br>■ Sakit/Izin ${d.sakit + d.izin}<br>■ Belum ${d.belum}</p></div></div></div>
-    <div class="card"><h3>Scan terbaru</h3>${tbl(['Jam', 'Nama', 'Kelas', 'Status'], d.terbaru.map(r => `<tr><td class="mono">${esc(r.jam)}</td><td>${esc(r.nama)}</td><td>${esc(r.kelas)}</td><td>${bd(r.status)}</td></tr>`))}</div></div>
-    <div class="card"><h3>Siswa belum scan (${d.belum})</h3>${tbl(['NIS', 'Nama', 'Kelas', 'Wali', ''], d.belumList.map(r => `<tr><td class="mono">${esc(r.nis)}</td><td>${esc(r.nama)}</td><td>${esc(r.kelas)}</td><td>${esc(r.wali)}</td><td>${r.wa ? `<a href="https://wa.me/62${esc(r.wa.slice(1))}" target="_blank" rel="noopener">Hubungi ortu</a>` : '-'}</td></tr>`), 'Semua siswa sudah scan 🎉')}</div>`; };
+  const draw = d => { const pr = d.total ? Math.round((d.hadir + d.terlambat) / d.total * 100) : 0, pc = n => d.total ? n / d.total * 100 : 0, tr = d.tren || [], av = tr.length && d.total ? Math.round(tr.reduce((a, b) => a + b.n, 0) / tr.length / d.total * 100) : 0;
+    m.innerHTML = `<div class="grid g4">${kpi('Total siswa', d.total, 100, 'ROSTER AKTIF', '▣')}${kpi('Hadir', d.hadir, pc(d.hadir), pr + '% DARI ROSTER', '✓')}${kpi('Terlambat', d.terlambat, pc(d.terlambat), 'PERLU DIPANTAU PIKET', '◔')}${kpi('Belum scan', d.belum, pc(d.belum), 'MENUNGGU / ALPA', '!')}</div>
+    <div class="grid g2"><div class="card"><div class="mono mut">[TREN MINGGUAN]</div><h3>Tren Kehadiran (siswa hadir per hari)</h3>${tr.length ? line(tr) : '<p class="mono">Belum cukup data.</p>'}<div class="mono mut">Rerata: ${av}% · Target: &gt;95%</div></div>
+    <div class="card"><div class="mono mut">[KOMPOSISI HARI INI · ${esc(d.tanggal)}]</div><h3>Distribusi Status Siswa</h3><div class="row"><div>${donut([['Hadir', d.hadir], ['Terlambat', d.terlambat], ['Sakit/Izin', d.sakit + d.izin], ['Belum', d.belum]], pr)}</div><p class="mono">■ Hadir ${d.hadir}<br>■ Terlambat ${d.terlambat}<br>■ Sakit/Izin ${d.sakit + d.izin}<br>■ Belum ${d.belum}</p></div></div></div>
+    <div class="card"><div class="mono mut">[PERLU TINDAKAN CEPAT]</div><h3>Siswa belum scan hari ini (${d.belum})</h3>${tbl(['NIS', 'Nama', 'Kelas', 'Wali', ''], d.belumList.map(r => `<tr><td class="mono">${esc(r.nis)}</td><td>${esc(r.nama)}</td><td>${esc(r.kelas)}</td><td>${esc(r.wali)}</td><td>${r.wa ? `<a href="https://wa.me/62${esc(r.wa.slice(1))}" target="_blank" rel="noopener">Hubungi ortu</a>` : '-'}</td></tr>`), 'Semua siswa sudah scan 🎉')}</div>
+    <div class="card"><div class="mono mut">[LOG LIVE]</div><h3>Scan terbaru</h3>${tbl(['Jam', 'Nama', 'Kelas', 'Status'], d.terbaru.map(r => `<tr><td class="mono">${esc(r.jam)}</td><td>${esc(r.nama)}</td><td>${esc(r.kelas)}</td><td>${bd(r.status)}</td></tr>`))}</div>`; };
   const load = () => { if (!document.hidden && $('#pg') === m) apiSWR('absen.dashboard', {}, draw); }; load(); timer = setInterval(load, 30000);
 }
 
 // ---------- scan wajah ----------
 let posTok = ''; try { posTok = localStorage.getItem('sa_pos') || ''; } catch (e) {}
 function pgScan(m, pos) {
-  m.innerHTML = `<div class="grid g2"><div class="card"><div class="ph"><video id="v" playsinline muted></video></div><p class="mono" id="st">Kamera belum aktif.</p><div class="row"><button class="p" id="go">Mulai Scan</button></div></div>
-  <div class="card"><h3>Hasil</h3><div id="rs" class="res">Menunggu wajah…</div><p class="mono">Lihat kamera. Pengenalan berjalan di perangkat; hanya vektor wajah yang dikirim, bukan foto.</p></div></div>`;
-  const v = $('#v'); let st, run = false, low = false, blink = 0;
+  m.innerHTML = `<div class="grid g2"><div class="card"><div class="row" style="justify-content:space-between"><h3>Kamera</h3><span class="mono" id="ck"></span></div><div class="ph"><video id="v" playsinline muted></video></div><p class="mono" id="st">Kamera belum aktif.</p><button class="p" id="go">Mulai Scan</button></div>
+  <div><div class="card"><h3>Hasil</h3><div id="rs" class="res">Menunggu wajah…</div></div><div class="card"><h3>Petunjuk</h3><ol class="mono"><li>Hadap kamera, wajah di tengah bingkai.</li><li>Kedipkan mata satu kali untuk verifikasi.</li><li>Tunggu tanda hasil; orang tua menerima notifikasi.</li></ol><p class="mono mut">Pengenalan berjalan di perangkat; hanya vektor wajah yang dikirim, bukan foto.</p></div><div class="card"><h3>Scan terakhir (sesi ini)</h3><div id="rc" class="mono">Belum ada.</div></div></div></div>`;
+  const v = $('#v'), rec = []; let st, run = false, low = false, blink = 0;
+  const tk = setInterval(() => { const e = $('#ck'); if (!e) return clearInterval(tk); e.textContent = new Date().toLocaleTimeString('id-ID', { hour12: false }) + ' WIB'; }, 1000);
   $('#go').onclick = async () => { try { $('#go').disabled = true; $('#st').textContent = 'Memuat model wajah…'; await Face.load(); st = await Face.cam(v); run = true; $('#st').textContent = 'Memindai…';
     while (run && document.body.contains(v)) { const d = await Face.desc(v); if (!d) { await sleep(120); continue; } const e = Face.ear; if (e < .21) low = true; else if (e > .26 && low) { low = false; blink = Date.now(); }
       if (Date.now() - blink > 8000) { $('#st').textContent = 'Kedipkan mata untuk verifikasi…'; await sleep(30); continue; } blink = 0;
       const r = await api('absen.scan', { vektor: d, live: true, posToken: pos ? posTok : undefined }), b = $('#rs'); if (!b) break;
-      b.className = 'res ' + (r.success ? 'ok' : 'bad'); b.innerHTML = r.success ? `${bd(r.data.status)} ${esc(r.data.nama)} (${esc(r.data.kelas)}) · ${esc(String(r.data.jam).slice(0, 5))}` : esc(r.message); await sleep(r.success ? 4000 : 1500); }
+      b.className = 'res ' + (r.success ? 'ok' : 'bad'); b.innerHTML = r.success ? `${bd(r.data.status)} ${esc(r.data.nama)} (${esc(r.data.kelas)}) · ${esc(String(r.data.jam).slice(0, 5))}` : esc(r.message);
+      if (r.success && !r.data.ganda) { rec.unshift(r.data); $('#rc').innerHTML = rec.slice(0, 6).map(x => `<div>${esc(String(x.jam).slice(0, 5))} ${esc(x.nama)} ${bd(x.status)}</div>`).join(''); }
+      await sleep(r.success ? 4000 : 1500); }
   } catch (e) { toast(e.message || 'Kamera tidak bisa diakses.', 'err'); $('#go').disabled = false; } if (st) st.getTracks().forEach(t => t.stop()); };
   new MutationObserver((_, o) => { if (!document.body.contains(v)) { run = false; if (st) st.getTracks().forEach(t => t.stop()); o.disconnect(); } }).observe(document.body, { childList: true, subtree: true });
 }
-function posMode() { if (!posTok) { const t = prompt('Tempel token pos absensi (dari log setup):'); if (!t) return; posTok = t.trim(); try { localStorage.setItem('sa_pos', posTok); } catch (e) {} }
-  $('#app').innerHTML = `<main><div class="top"><h1>Pos Absensi</h1><button id="x">Keluar mode pos</button></div><div id="pg"></div></main>`; $('#x').onclick = () => { try { localStorage.removeItem('sa_pos'); } catch (e) {} posTok = ''; login(); }; pgScan($('#pg'), true); }
+function posMode() {
+  if (!posTok) { const t = prompt('Tempel token pos absensi (dari log setup):'); if (!t) { location.hash = ''; return login(); } posTok = t.trim(); try { localStorage.setItem('sa_pos', posTok); } catch (e) {} }
+  $('#app').innerHTML = `<main style="max-width:1100px;margin:0 auto"><div class="card hero"><div class="logo">SI</div><div class="f"><div class="mono">POS ABSENSI · SMPN 3 KEDIRI</div><h1>Pos Absensi Wajah</h1><div class="mut">Mode perangkat gerbang — tanpa login.</div></div><div class="row"><button id="y">Masuk staf / siswa</button><button id="x">Hapus token pos</button></div></div><div id="pg"></div></main>`;
+  $('#y').onclick = () => { location.hash = ''; login(); }; $('#x').onclick = () => { try { localStorage.removeItem('sa_pos'); } catch (e) {} posTok = ''; location.hash = ''; login(); }; pgScan($('#pg'), true);
+}
 
 // ---------- rekap, riwayat ----------
 function pgRekap(m) {
